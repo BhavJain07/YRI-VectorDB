@@ -1,0 +1,12 @@
+requests
+beautifulsoup4
+pandas
+numpy
+sentence-transformers
+networkx
+faiss-cpu  # or faiss-gpu if you have CUDA
+torch
+transformers
+openai
+python-dotenv
+jupyter
