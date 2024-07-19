@@ -4,7 +4,8 @@ from embedders.user_info_embedder import UserInfoEmbedder
 from knowledge_graph.graph_querier import KnowledgeGraphQuerier
 from models.fine_tuned_email_generator import FineTunedEmailGenerator
 from questionnaire.user_info_extractor import UserInfoExtractor
-from database.vector_db import VectorDB
+from database import Session, University, Professor
+from email_sender import send_email
 
 def load_professors(university_name):
     with open(f"../data/professors/{university_name}.json", "r") as f:
@@ -17,7 +18,7 @@ def main():
     graph_querier = KnowledgeGraphQuerier("../data/knowledge_graph.gexf")
     email_generator = FineTunedEmailGenerator()
     user_info_extractor = UserInfoExtractor()
-    vector_db = VectorDB.load("../data/professor_db")
+    session = Session()
 
     # Get user information
     user_info = user_info_extractor.extract_user_info()
@@ -26,15 +27,14 @@ def main():
     user_embedding = user_info_embedder.embed(user_info)
 
     # Find similar professors
-    similar_professors = vector_db.search(user_embedding, k=5)
+    similar_professors = graph_querier.find_related_professors(user_embedding)
 
-    # Generate emails for each similar professor
+    # Generate and send emails
     for professor in similar_professors:
-        professor_info = graph_querier.get_professor_info(professor['name'])
-        email = email_generator.generate_email(professor_info, user_info)
-        print(f"\nGenerated email for {professor['name']}:")
-        print(email)
-        print("\n" + "="*50 + "\n")
+        email_body = email_generator.generate_email(professor, user_info)
+        send_email(professor.email, "Research Inquiry", email_body)
+
+    session.close()
 
 if __name__ == "__main__":
     main()
