@@ -40,3 +40,7 @@ Thumbs.db
 # Specific to your project
 data/professors/
 models/
+.env 
+cold_emailer_env/
+
+

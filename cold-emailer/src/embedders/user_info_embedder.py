@@ -6,17 +6,16 @@ class UserInfoEmbedder:
         self.model = SentenceTransformer(model_name)
 
     def embed(self, user_info):
-        # Combine user info into a single string
-        combined_info = " ".join([f"{k}: {v}" for k, v in user_info.items()])
-        return self.model.encode(combined_info)
+        text = f"{user_info['name']} {user_info['education']} {user_info['interests']} {user_info['reason_for_contact']}"
+        return self.model.encode(text)
 
 if __name__ == "__main__":
     embedder = UserInfoEmbedder()
     user_info = {
         "name": "John Doe",
-        "interests": "Machine Learning, Natural Language Processing",
-        "education": "BS in Computer Science",
-        "location": "New York, USA"
+        "education": "Bachelor's in Computer Science",
+        "interests": "machine learning, natural language processing",
+        "reason_for_contact": "Interested in pursuing a PhD"
     }
     embedding = embedder.embed(user_info)
     print(f"Shape of embedding: {embedding.shape}")

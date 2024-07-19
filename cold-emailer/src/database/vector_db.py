@@ -1,45 +1,44 @@
-import json
-from embedders.interest_embedder import InterestEmbedder
-from embedders.user_info_embedder import UserInfoEmbedder
-from knowledge_graph.graph_querier import KnowledgeGraphQuerier
-from database.vector_db import VectorDB
-from models.fine_tuned_email_generator import FineTunedEmailGenerator
-from questionnaire.user_info_extractor import UserInfoExtractor
+import faiss
+import numpy as np
+import pickle
 
-def main():
-    # Load knowledge graph
-    graph_querier = KnowledgeGraphQuerier("../../data/knowledge_graph.gexf")
+class VectorDB:
+    def __init__(self, dimension):
+        self.index = faiss.IndexFlatL2(dimension)
+        self.professors = []
 
-    # Load vector database
-    vector_db = VectorDB.load("../../data/vector_db")
+    def add(self, embedding, professor_info):
+        self.index.add(np.array([embedding]))
+        self.professors.append(professor_info)
 
-    # Initialize embedders
-    interest_embedder = InterestEmbedder()
-    user_info_embedder = UserInfoEmbedder()
+    def search(self, query_embedding, k=5):
+        distances, indices = self.index.search(np.array([query_embedding]), k)
+        return [self.professors[i] for i in indices[0]]
 
-    # Initialize email generator
-    email_generator = FineTunedEmailGenerator()
+    def save(self, filename):
+        with open(filename, 'wb') as f:
+            pickle.dump((self.index, self.professors), f)
 
-    # Extract user information
-    user_info_extractor = UserInfoExtractor()
-    user_info = user_info_extractor.extract_user_info()
-
-    # Embed user information
-    user_embedding = user_info_embedder.embed(user_info)
-
-    # Search for similar professors
-    similar_professors = vector_db.search(user_embedding, k=5)
-
-    # Generate emails for similar professors
-    emails = []
-    for professor_info in similar_professors:
-        email = email_generator.generate_email(professor_info, user_info)
-        emails.append((professor_info['name'], email))
-
-    # Print generated emails
-    print("Generated Emails:")
-    for professor_name, email in emails:
-        print(f"Professor: {professor_name}\nEmail:\n{email}\n")
+    @classmethod
+    def load(cls, filename):
+        with open(filename, 'rb') as f:
+            index, professors = pickle.load(f)
+        db = cls(index.d)
+        db.index = index
+        db.professors = professors
+        return db
 
 if __name__ == "__main__":
-    main()
+    # Create a dummy vector database
+    db = VectorDB(dimension=768)  # Assuming 768-dimensional embeddings
+    db.add(np.random.rand(768), {
+        'name': 'Dr. John Doe',
+        'email': 'john.doe@example.com',
+        'interests': ['Machine Learning', 'Artificial Intelligence']
+    })
+    db.add(np.random.rand(768), {
+        'name': 'Dr. Jane Smith',
+        'email': 'jane.smith@example.com',
+        'interests': ['Natural Language Processing', 'Computer Vision']
+    })
+    db.save("../../data/vector_db")

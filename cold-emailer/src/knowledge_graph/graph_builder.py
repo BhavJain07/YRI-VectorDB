@@ -32,5 +32,13 @@ class KnowledgeGraphBuilder:
 
 if __name__ == "__main__":
     builder = KnowledgeGraphBuilder()
-    builder.build_from_data("../../data/professors/Stanford University.json")
+    # Add dummy data
+    builder.add_professor({
+        'name': 'Dr. John Doe',
+        'interests': ['Machine Learning', 'Artificial Intelligence']
+    })
+    builder.add_professor({
+        'name': 'Dr. Jane Smith',
+        'interests': ['Natural Language Processing', 'Computer Vision']
+    })
     builder.save_graph("../../data/knowledge_graph.gexf")

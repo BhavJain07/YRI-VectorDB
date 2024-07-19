@@ -6,6 +6,7 @@ from models.fine_tuned_email_generator import FineTunedEmailGenerator
 from questionnaire.user_info_extractor import UserInfoExtractor
 from database import Session, University, Professor
 from email_sender import send_email
+from database.vector_db import VectorDB
 
 def load_professors(university_name):
     with open(f"../data/professors/{university_name}.json", "r") as f:
@@ -20,19 +21,22 @@ def main():
     user_info_extractor = UserInfoExtractor()
     session = Session()
 
+    # Load vector database
+    vector_db = VectorDB.load("../data/vector_db")
+
     # Get user information
     user_info = user_info_extractor.extract_user_info()
 
-    # Embed user interests
+    # Embed user information
     user_embedding = user_info_embedder.embed(user_info)
 
-    # Find similar professors
-    similar_professors = graph_querier.find_related_professors(user_embedding)
+    # Search for similar professors
+    similar_professors = vector_db.search(user_embedding, k=5)
 
     # Generate and send emails
-    for professor in similar_professors:
-        email_body = email_generator.generate_email(professor, user_info)
-        send_email(professor.email, "Research Inquiry", email_body)
+    for professor_info in similar_professors:
+        email_body = email_generator.generate_email(professor_info, user_info)
+        send_email(professor_info['email'], "Research Inquiry", email_body)
 
     session.close()
 

@@ -10,3 +10,7 @@ transformers
 openai
 python-dotenv
 jupyter
+sqlalchemy
+scikit-learn
+matplotlib
+seaborn
