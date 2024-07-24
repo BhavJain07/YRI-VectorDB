@@ -1,44 +1,60 @@
-import json
-from embedders.interest_embedder import InterestEmbedder
-from embedders.user_info_embedder import UserInfoEmbedder
-from knowledge_graph.graph_querier import KnowledgeGraphQuerier
-from models.fine_tuned_email_generator import FineTunedEmailGenerator
-from questionnaire.user_info_extractor import UserInfoExtractor
-from database import Session, University, Professor
-from email_sender import send_email
+from scrapers.professor_scraper import ProfessorScraper
+from cold_emailer import ColdEmailer
+from config import OPENAI_API_KEY, GROQ_API_KEY, VECTOR_DB_PATH
 from database.vector_db import VectorDB
-
-def load_professors(university_name):
-    with open(f"../data/professors/{university_name}.json", "r") as f:
-        return json.load(f)
+from embedders.interest_embedder import InterestEmbedder
 
 def main():
-    # Initialize components
+    api_keys = {
+        'openai': OPENAI_API_KEY,
+        'groq': GROQ_API_KEY
+    }
+
+    if not api_keys['openai'] or not api_keys['groq']:
+        print("Error: OpenAI or Groq API key is missing. Please check your .env file.")
+        return
+
+    scraper = ProfessorScraper()
+    emailer = ColdEmailer(api_keys)
     interest_embedder = InterestEmbedder()
-    user_info_embedder = UserInfoEmbedder()
-    graph_querier = KnowledgeGraphQuerier("../data/knowledge_graph.gexf")
-    email_generator = FineTunedEmailGenerator()
-    user_info_extractor = UserInfoExtractor()
-    session = Session()
 
-    # Load vector database
-    vector_db = VectorDB.load("../data/vector_db")
+    # Load or create VectorDB
+    try:
+        vector_db = VectorDB.load(VECTOR_DB_PATH)
+    except FileNotFoundError:
+        vector_db = VectorDB(dimension=768)  # Dimension of the InterestEmbedder output
 
-    # Get user information
-    user_info = user_info_extractor.extract_user_info()
+    # Scrape professors and add to VectorDB if it's empty
+    if not vector_db.professors:
+        universities = ["Stanford University", "MIT", "Harvard University"]  # Add more as needed
+        for university in universities:
+            professors = scraper.search_professors(university)
+            for professor in professors:
+                embedding = interest_embedder.embed(" ".join(professor['interests']))
+                vector_db.add(embedding, professor)
+        vector_db.save(VECTOR_DB_PATH)
 
-    # Embed user information
-    user_embedding = user_info_embedder.embed(user_info)
+    # Get user input
+    name = input("Enter your full name: ")
+    interests = input("Enter your research interests: ")
+    achievements = input("Enter your achievements: ")
 
-    # Search for similar professors
-    similar_professors = vector_db.search(user_embedding, k=5)
+    # Find similar professors
+    interest_embedding = interest_embedder.embed(interests)
+    similar_professors = vector_db.search(interest_embedding, k=5)
+    print(f"Suggested professors: {[prof['name'] for prof in similar_professors]}")
 
-    # Generate and send emails
-    for professor_info in similar_professors:
-        email_body = email_generator.generate_email(professor_info, user_info)
-        send_email(professor_info['email'], "Research Inquiry", email_body)
+    # Generate cold email for the top match
+    cold_email = emailer.generate_cold_email(
+        name=name,
+        prof_name=similar_professors[0]['name'],
+        interest=interests,
+        achievements=achievements,
+        publications=scraper.get_publications(similar_professors[0]['name'])[:5]
+    )
 
-    session.close()
+    print("\nGenerated Cold Email:")
+    print(cold_email)
 
 if __name__ == "__main__":
     main()
