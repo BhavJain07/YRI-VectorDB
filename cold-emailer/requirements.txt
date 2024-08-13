@@ -17,3 +17,6 @@ seaborn
 groq
 scholarly
 arxiv
+fastapi
+uvicorn
+jinja2
