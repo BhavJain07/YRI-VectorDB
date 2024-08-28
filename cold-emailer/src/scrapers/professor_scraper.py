@@ -4,6 +4,7 @@ import arxiv
 import time
 import random
 import logging
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +20,14 @@ class ProfessorScraper:
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
             response = requests.get(url, headers=headers)
             logger.info(f"Response status code: {response.status_code}")
-            logger.info(f"Response content: {response.text[:500]}...")  # Log first 500 characters of the response
             
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch data. Status code: {response.status_code}")
+                return professors
+
             soup = BeautifulSoup(response.text, 'html.parser')
             
             for result in soup.find_all('div', class_='g'):
-                logger.info(f"Found result: {result}")
                 name = result.find('h3')
                 if name:
                     name = name.text.strip()
@@ -47,14 +50,51 @@ class ProfessorScraper:
             return []
 
     def extract_interests(self, text):
-        # Simple keyword extraction (you might want to improve this)
-        keywords = ['machine learning', 'artificial intelligence', 'data science', 'computer vision', 'natural language processing']
-        return [kw for kw in keywords if kw in text.lower()]
+        keywords = ['machine learning', 'artificial intelligence', 'data science', 'computer vision', 'natural language processing',
+                    'robotics', 'deep learning', 'neural networks', 'big data', 'cybersecurity', 'blockchain',
+                    'internet of things', 'cloud computing', 'quantum computing', 'bioinformatics']
+        return list(set([kw for kw in keywords if kw in text.lower()]))
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def get_publications(self, professor_name):
         try:
-            search = arxiv.Search(query=professor_name, max_results=5)
-            return [result.title for result in self.arxiv_client.results(search)]
+            search = arxiv.Search(query=professor_name, max_results=1)
+            logger.info(f"get_publications Found {search}")
+
+            client = arxiv.Client()
+            results = list(client.results(search))
+
+            #results = self.arxiv_client.results(search)
+            logger.info(f"get_publications results Found {results}")
+            logger.info(f"Found {len(results)} publications for {professor_name}")
+            
+            # for x in results:
+            #     print(x.title)
+            # if results:
+            #     logger.info("In thee IF Results")
+            #     #return [result.title for result in results]
+            # else:
+            #     logger.error("No results found for the given query.")
+            #     return []
+
+            return [result.title for result in results]
+        
         except Exception as e:
-            print(f"Error fetching publications: {str(e)}")
-            return []
+            logger.error(f"Error fetching publications for {professor_name}: {str(e)}")
+            raise
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    scraper = ProfessorScraper()
+    professors = scraper.search_professors("Stanford University", max_professors=5)
+    print(f"Found {len(professors)} professors:")
+    for prof in professors:
+        print(f"Name: {prof['name']}")
+        print(f"Interests: {', '.join(prof['interests'])}")
+        print("---")
+    
+    if professors:
+        publications = scraper.get_publications(professors[0]['name'])
+        print(f"Publications for {professors[0]['name']}:")
+        for pub in publications:
+            print(f"- {pub}")
