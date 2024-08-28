@@ -41,11 +41,12 @@ Cold Emailer is a web application that generates personalized cold emails for st
    ```
    uvicorn src.app:app --reload
    ```
+2. CD into the cold-emailer directory
 
-2. Open a web browser and navigate to `http://localhost:8000`
+3. Open a web browser and navigate to `http://localhost:8000`
 
-3. Fill out the form with your name, research interests, and achievements
+4. Fill out the form with your name, research interests, and achievements
 
-4. Click "Generate Email" to receive a personalized cold email
+5. Click "Generate Email" to receive a personalized cold email
 
 ## Project Structure
